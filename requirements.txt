@@ -3,3 +3,4 @@ fastmeteo
 pandas
 streamlit
 pydeck
+numpy

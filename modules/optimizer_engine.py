@@ -8,8 +8,20 @@ import numpy as np
 from typing import Dict, Tuple, Optional, List
 import logging
 from datetime import datetime, timedelta
-import openap
-from openap.top import CompleteFlight
+
+try:
+    from openap.top import CompleteFlight
+    OPENAP_TOP_AVAILABLE = True
+except ImportError:
+    OPENAP_TOP_AVAILABLE = False
+    CompleteFlight = None
+
+try:
+    from .weather_engine import WeatherEngine
+    WEATHER_ENGINE_AVAILABLE = True
+except ImportError:
+    WEATHER_ENGINE_AVAILABLE = False
+    WeatherEngine = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -165,8 +177,18 @@ class FlightOptimizer:
         Args:
             aircraft_type: ICAO aircraft type code (default: 'A320')
         """
+        if not OPENAP_TOP_AVAILABLE:
+            raise ImportError("openap.top module not available. Cannot use FlightOptimizer.")
+        
         self.aircraft_type = aircraft_type
-        self.weather_handler = WeatherHandler()
+        
+        # Initialize WeatherEngine if available
+        if WEATHER_ENGINE_AVAILABLE:
+            self.weather_engine = WeatherEngine()
+            logger.info(f"Initialized FlightOptimizer for {aircraft_type} with WeatherEngine")
+        else:
+            self.weather_engine = None
+            logger.warning(f"Initialized FlightOptimizer for {aircraft_type} without WeatherEngine")
         
         logger.info(f"Initialized FlightOptimizer for {aircraft_type}")
     
@@ -215,11 +237,21 @@ class FlightOptimizer:
             
             # Fetch weather data
             logger.info("Fetching weather data...")
-            wind_grid = self.weather_handler.fetch_wind_grid(
-                origin_lat, origin_lon,
-                dest_lat, dest_lon,
-                date_str
-            )
+            wind_grid = None
+            
+            if self.weather_engine is not None:
+                try:
+                    wind_grid = self.weather_engine.get_weather_grid(
+                        origin=(origin_lat, origin_lon),
+                        dest=(dest_lat, dest_lon),
+                        flight_date=date_str,
+                        flight_level=350
+                    )
+                except Exception as e:
+                    logger.warning(f"Error fetching weather data: {str(e)}")
+                    wind_grid = None
+            else:
+                logger.warning("WeatherEngine not available, proceeding without weather data")
             
             # Initialize OpenAP trajectory optimizer
             logger.info(f"Initializing CompleteFlight for {self.aircraft_type}")
