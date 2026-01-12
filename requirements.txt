@@ -1,0 +1,5 @@
+openap
+fastmeteo
+pandas
+streamlit
+pydeck
