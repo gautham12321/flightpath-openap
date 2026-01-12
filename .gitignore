@@ -1,0 +1,12 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+
+# Data directory
+data/
+
+# Weather data files
+*.grib
+*.nc
